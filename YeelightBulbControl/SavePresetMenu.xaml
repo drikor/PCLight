@@ -12,9 +12,9 @@
         <TextBox x:Name="PresetName_TextBox" HorizontalAlignment="Center" Height="24" Margin="0,36,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="180"/>
         <Label Content="Preset name" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top" Width="77" Height="26"/>
         <Label Content="Brightness" HorizontalAlignment="Left" Height="26" Margin="10,92,0,0" VerticalAlignment="Top" Width="72" />
-        <TextBox x:Name="Brightness_TextBox" HorizontalAlignment="Left" Height="24" Margin="10,118,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="51"/>
+        <TextBox x:Name="Brightness_TextBox" PreviewTextInput="NumberValidationTextBox" HorizontalAlignment="Left" Height="24" Margin="10,118,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="51"/>
         <CheckBox x:Name="ColorMode_CheckBox" Content="RGB" HorizontalAlignment="Left" Height="31" Margin="116,111,0,0" VerticalAlignment="Top" Width="74" Checked="ColorMode_CheckBox_StateChanged" Unchecked="ColorMode_CheckBox_StateChanged"/>
-        <TextBox x:Name="ColorTemperature_TextBox" HorizontalAlignment="Left" Height="26" Margin="10,154,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="51" />
+        <TextBox x:Name="ColorTemperature_TextBox" PreviewTextInput="NumberValidationTextBox" HorizontalAlignment="Left" Height="26" Margin="10,154,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="51" />
         <Button x:Name="SavePreset_Button" Content="Save" HorizontalAlignment="Left" Height="25" Margin="110,194,0,0" VerticalAlignment="Top" Width="52" Click="SavePreset_Button_Click"/>
         <xctk:ColorPicker x:Name="RGB_ColorPicker" Margin="10,194,0,0"  VerticalAlignment="Top" HorizontalAlignment="Left" Width="51" Height="25" />
     </Grid>

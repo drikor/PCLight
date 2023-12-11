@@ -260,7 +260,7 @@ namespace YeelightBulbControl
 
                 // Устанавливаем hostname из конфигурации
                 Hostname_TextBox.Text = config.Hostname;
-                if (config.Presets == null || config.Presets[0] == null)
+                if (config.Presets == null)
                 {
                     DoesINeedToCreateDefaultPreset = true;
                 }
@@ -273,6 +273,7 @@ namespace YeelightBulbControl
             logger.Information("Opening presets menu..");
             PresetsMenu presetsMenu = new PresetsMenu(logger, configFilePath);
             presetsMenu.PresetSelected += PresetsMenu_PresetSelected;
+            presetsMenu.ChosenPresetToDelete += PresetsMenu_ChosenPresetToDelete;
             presetsMenu.Show();
         }
 
@@ -281,6 +282,12 @@ namespace YeelightBulbControl
             logger.Information("PresetsMenu_PresetSelected method called");
             SetPreset(selectedPreset);
             logger.Information("Successfuly set preset {selectedPresetName}", selectedPreset.Name);
+        }
+
+        private void PresetsMenu_ChosenPresetToDelete(List<Preset> presets)
+        {
+            SaveConfig(hostname, presets.ToArray());
+            logger.Information("Saved config with deleted preset");
         }
 
         private void SavePreset_Button_Click(object sender, RoutedEventArgs e)

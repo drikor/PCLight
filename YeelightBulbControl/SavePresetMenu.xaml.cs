@@ -1,7 +1,9 @@
 ﻿using Newtonsoft.Json;
 using Serilog;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Media;
 
 namespace YeelightBulbControl
@@ -13,6 +15,13 @@ namespace YeelightBulbControl
 
         public delegate void PresetSavedEventHandler(List<Preset> presets);
         public event PresetSavedEventHandler PresetSaved;
+
+        private void NumberValidationTextBox(object sender, TextCompositionEventArgs e)
+        {
+            logger.Debug("NumberValidationTextBox method called");
+            Regex regex = new Regex("[^0-9]+");
+            e.Handled = regex.IsMatch(e.Text);
+        }
 
         public SavePresetMenu(ILogger logger, string configFilePath, Preset currentPreset)
         {
@@ -90,21 +99,44 @@ namespace YeelightBulbControl
             try 
             {
                 ct = int.Parse(ColorTemperature_TextBox.Text);
+                if (ct < 1700) ct = 1700;
+                if (ct > 6500) ct = 6500;
             } 
             catch (Exception exc)
             {
-                logger.Warning($"{exc}");
+                logger.Warning($"Error parsing ct. {exc}]\nNow ct=4500");
                 ct = 4500;
+            }
+
+            byte brightness;
+
+            try
+            {
+                brightness = byte.Parse(Brightness_TextBox.Text);
+            }
+            catch (Exception exc)
+            {
+                brightness = 100;
+                logger.Warning("Failed to parse brightness. Value is {Brightness}", brightness);
             }
 
             Preset presetToSave = new Preset
             {
                 Name = PresetName_TextBox.Text,
-                Brightness = byte.Parse(Brightness_TextBox.Text),
+                Brightness = brightness,
                 ColorMode = !(bool)ColorMode_CheckBox.IsChecked ? 2 : 1,
                 ColorTemperature = ct,
                 ColorRGB = int.Parse(RGB_ColorPicker.SelectedColor.ToString().Substring(3), System.Globalization.NumberStyles.HexNumber),
             };
+
+            Preset[] presets = LoadPresetsFromConfig();
+
+            Preset maybeSamePreset = presets.SingleOrDefault(p => p.Name == presetToSave.Name);
+            if (maybeSamePreset != null)
+            {
+                MessageBox.Show($"Silly, there is already a preset with name {presetToSave.Name}, be more creative :c", "Silly boy :c");
+                return;
+            }
 
             PresetSaved?.Invoke(SavePreset(presetToSave, LoadPresetsFromConfig()));
             Close();

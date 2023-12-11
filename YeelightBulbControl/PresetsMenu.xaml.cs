@@ -18,6 +18,9 @@ namespace YeelightBulbControl
         public delegate void PresetSelectedEventHandler(Preset selectedPreset);
         public event PresetSelectedEventHandler PresetSelected;
 
+        public delegate void ChosenPresetToDeleteEventHandler(List<Preset> presets);
+        public event ChosenPresetToDeleteEventHandler ChosenPresetToDelete;
+
         public PresetsMenu(ILogger logger, string configFilePath)
         {
             this.logger = logger;
@@ -82,6 +85,28 @@ namespace YeelightBulbControl
             }
 
             Close();
+        }
+
+        private void DeletePresetButton_Click(object sender, RoutedEventArgs e)
+        {
+            Preset selectedPreset = (Preset)PresetsListBox.SelectedItem;
+
+            if (selectedPreset == null)
+            {
+                MessageBox.Show("Siily, you should choose preset first (just click on it");
+                return;
+            }
+            List<Preset> presets = LoadPresetsFromConfig().ToList();
+            Preset presetToRemove = presets.Single(p => p.Name == selectedPreset.Name);
+            if (presetToRemove == null)
+            {
+                MessageBox.Show("Something went wrong");
+                logger.Error($"Preset TO REMOVE IS NULL");
+                return;
+            }
+            presets.Remove(presetToRemove);
+            PresetsListBox.ItemsSource = presets;
+            ChosenPresetToDelete?.Invoke(presets);
         }
     }
 
