@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using Serilog;
 using Newtonsoft.Json;
 using System.Windows.Media;
+using System.ComponentModel;
 
 namespace YeelightBulbControl
 {
@@ -16,12 +17,14 @@ namespace YeelightBulbControl
             .WriteTo.File("log.txt")
             .CreateLogger();
 
-       // private readonly RateLimiter rateLimiter = new RateLimiter(60); // 60 токенов в минут
-
         private Device device;
         private string hostname;
         private bool BulbPowerState;
         private byte r, g, b;
+        private bool isConnected = false;
+
+        // для Lightsync
+        private Preset LightSyncCurrentPreset;
 
         // Лучше в будущем поменять, если у юзера нет пресетов, эта переменная будет true
         private bool DoesINeedToCreateDefaultPreset;
@@ -29,11 +32,23 @@ namespace YeelightBulbControl
         // Путь к файлу конфигурации
         private string configFilePath;
 
+        // Дефолтный пресет
+        private Preset defaultPreset = new Preset
+        {
+            Name = "defaultPreset",
+            Brightness = 100,
+            ColorMode = 2,
+            ColorRGB = 1,
+            ColorTemperature = 4500
+        };
+
         public MainWindow()
         {
             InitializeComponent();
 #if DEBUG
             MainScreen.Title = $"[DEBUG] {MainScreen.Title}" ;
+            debug_label.Visibility = System.Windows.Visibility.Visible;
+            debug_btn.Visibility = System.Windows.Visibility.Visible;
 #endif
             logger.Information("Application started");
 
@@ -53,6 +68,9 @@ namespace YeelightBulbControl
 
             // Загружаем конфигурацию
             LoadConfig();
+
+            logger.Information("Trying to connect automatically...");
+            Connect();
         }
 
         private void NumberValidationTextBox(object sender, TextCompositionEventArgs e)
@@ -71,11 +89,16 @@ namespace YeelightBulbControl
             logger.Information("Bulb.power = {BulbPowerState}", BulbPowerState);
         }
 
-        private async void Connect_Button_Click(object sender, RoutedEventArgs e)
+        private async void Connect()
         {
-            // главное не загадить эту кнопку до конца.
+            if (isConnected) 
+            { 
+                MessageBox.Show("Silly, you are already connected :3");
+                return;
+            }
 
             hostname = Hostname_TextBox.Text;
+            if (hostname == null || hostname == "") return; 
 
             // никуда не годится. ИЗМЕНИТЬ!!
 
@@ -83,20 +106,11 @@ namespace YeelightBulbControl
 
             if (DoesINeedToCreateDefaultPreset)
             {
-                
-                Preset defaultPreset = new Preset
-                {
-                    Name = "defaultPreset",
-                    Brightness = 100,
-                    ColorMode = 2,
-                    ColorRGB = 1,
-                    ColorTemperature = 4500
-                };
-
                 presets = new Preset[0];
                 Array.Resize(ref presets, presets.Length + 1);
                 presets[presets.Length - 1] = defaultPreset;
-            } else
+            }
+            else
             {
                 presets = LoadPresetsFromConfig();
             }
@@ -110,23 +124,40 @@ namespace YeelightBulbControl
             {
                 logger.Information($"Trying to connect: {hostname}...");
                 await device.Connect();
+                
+                logger.Information("{Hostname} connected successfully", hostname);
+
+                UpdateButtonsState();
+
                 BulbPowerState = device.Properties["power"] != "on";
-                device.SetPower(BulbPowerState);
+
                 logger.Information("Bulb.power = {BulbPowerState}", BulbPowerState);
+                logger.Information("rgb = {rgb}", device.Properties["rgb"]);
+
+                device.SetPower(BulbPowerState);
+                string hexColor = int.Parse((string)device.Properties["rgb"]).ToString("X");
+
                 Brightness_TextBox.Text = (string)device.Properties["bright"];
                 Warm_TextBox.Text = (string)device.Properties["ct"];
-                logger.Information("rgb -- {rgb}", device.Properties["rgb"]);
-                string hexColor = int.Parse((string)device.Properties["rgb"]).ToString("X");
+
                 RGB_ColorPicker.SelectedColor =
                     (Color)System.Windows.Media.ColorConverter.ConvertFromString($"#{hexColor}");
-                UpdateButtonsState();
-                logger.Information("{Hostname} connected successfully", hostname);
+
+                isConnected = true;
+                Connect_Button.IsEnabled = false;
+                Hostname_TextBox.IsEnabled = false;
             }
             catch (Exception ex)
             {
                 MessageBox.Show("Something went wrong! Check console or log.txt!");
                 logger.Error(ex, "Failed to connect to {Hostname}!! Error - {ex}", hostname, ex);
             }
+        }
+
+        private void Connect_Button_Click(object sender, RoutedEventArgs e)
+        {
+            // главное не загадить эту кнопку до конца.
+            Connect();
         }
 
         private void UpdateButtonsState()
@@ -280,6 +311,23 @@ namespace YeelightBulbControl
         private void PresetsMenu_PresetSelected(Preset selectedPreset)
         {
             logger.Information("PresetsMenu_PresetSelected method called");
+            if (selectedPreset.Name == "__MINECRAFT__")
+            {
+                Preset LightSyncDefaultPreset = new Preset
+                {
+                    Name = "___LightSyncDefault",
+                    Brightness = 100,
+                    ColorMode = 2,
+                    ColorTemperature = 4444,
+                    ColorRGB = 123123123,
+                };
+                SyncWithMinecraftWindow syncWithMinecraftWindow = new SyncWithMinecraftWindow(logger, device, LightSyncDefaultPreset);
+                LightSyncCurrentPreset = GetCurrentPreset();
+                ChangeAllButtonsStates();
+                syncWithMinecraftWindow.Closing += LightSyncOnWindowClosing;
+                syncWithMinecraftWindow.Show();
+                return;
+            }
             SetPreset(selectedPreset);
             logger.Information("Successfuly set preset {selectedPresetName}", selectedPreset.Name);
         }
@@ -295,28 +343,7 @@ namespace YeelightBulbControl
             logger.Information("SavePreset_Menu method called");
             logger.Information("Opening saving preset menu");
 
-            Preset currentPreset;
-            if (byte.Parse($"{device.Properties["color_mode"]}") == 1)
-            {
-                currentPreset = new Preset
-                {
-                    Name = "_current",
-                    Brightness = Byte.Parse(Brightness_TextBox.Text),
-                    ColorMode = byte.Parse($"{device.Properties["color_mode"]}"),
-                    ColorRGB = int.Parse(RgbToHex(r, g, b), System.Globalization.NumberStyles.HexNumber),
-                    ColorTemperature = 4500
-                };
-            } else
-            {
-                currentPreset = new Preset
-                {
-                    Name = "_current",
-                    Brightness = Byte.Parse(Brightness_TextBox.Text),
-                    ColorMode = byte.Parse($"{device.Properties["color_mode"]}"),
-                    ColorTemperature = int.Parse($"{device.Properties["ct"]}"),
-                    ColorRGB = 9055202,
-                };
-            }
+            Preset currentPreset = GetCurrentPreset();
 
             SavePresetMenu savePresetMenu = new SavePresetMenu(logger, configFilePath, currentPreset);
             savePresetMenu.PresetSaved += SavePresetMenu_PresetSaved;
@@ -339,15 +366,6 @@ namespace YeelightBulbControl
                 return config.Presets;
             } else
             {
-                Preset defaultPreset = new Preset
-                {
-                    Name = "defaultPreset",
-                    Brightness = 100,
-                    ColorMode = 2,
-                    ColorRGB = 1,
-                    ColorTemperature = 4500
-                };
-
                 Preset[] presets = new Preset[0];
                 Array.Resize(ref presets, presets.Length + 1);
                 presets[presets.Length - 1] = defaultPreset;
@@ -371,8 +389,81 @@ namespace YeelightBulbControl
         {
             return $"{r:X2}{g:X2}{b:X2}";
         }
-    }
 
+        private Preset GetCurrentPreset()
+        {
+            Preset currentPreset;
+            if (byte.Parse($"{device.Properties["color_mode"]}") == 1)
+            {
+                currentPreset = new Preset
+                {
+                    Name = "_current",
+                    Brightness = Byte.Parse(Brightness_TextBox.Text),
+                    ColorMode = byte.Parse($"{device.Properties["color_mode"]}"),
+                    ColorRGB = int.Parse(RgbToHex(r, g, b), System.Globalization.NumberStyles.HexNumber),
+                    ColorTemperature = 4500
+                };
+            }
+            else
+            {
+                currentPreset = new Preset
+                {
+                    Name = "_current",
+                    Brightness = Byte.Parse(Brightness_TextBox.Text),
+                    ColorMode = byte.Parse($"{device.Properties["color_mode"]}"),
+                    ColorTemperature = int.Parse($"{device.Properties["ct"]}"),
+                    ColorRGB = 9055202,
+                };
+            }
+
+            return currentPreset;
+        }
+
+        private async void debug_fun()
+        {
+            IEnumerable<Device> discoveredDevices = await DeviceLocator.DiscoverAsync();
+            logger.Information($"found {discoveredDevices.Count()} devices");
+            if (discoveredDevices.Count() != 0)
+            {
+                debug_label.Content = discoveredDevices.ElementAt(0).ToString();
+            } else
+            {
+                debug_label.Content = "No devices found";
+            }
+        }
+
+        private void debug_btn_Click(object sender, RoutedEventArgs e)
+        {
+            debug_fun();
+        }
+
+        private void debug_label_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            MessageBox.Show((string) debug_label.Content);
+        }
+
+        public void LightSyncOnWindowClosing(object sender, CancelEventArgs e)
+        {
+            ChangeAllButtonsStates();
+            SetPreset(LightSyncCurrentPreset);
+        }
+
+        private void ChangeAllButtonsStates()
+        {
+            logger.Debug("ChangeAllButtonsStates method called");
+
+            Switch_Button.IsEnabled = !Switch_Button.IsEnabled;
+            Brightness_TextBox.IsEnabled = !Brightness_TextBox.IsEnabled;
+            Brightness_Button.IsEnabled = !Brightness_Button.IsEnabled;
+            Warm_TextBox.IsEnabled = !Warm_TextBox.IsEnabled;
+            Warm_Button.IsEnabled = !Warm_Button.IsEnabled;
+            Sendrgb_Button.IsEnabled = !Sendrgb_Button.IsEnabled;
+            RGB_ColorPicker.IsEnabled = !RGB_ColorPicker.IsEnabled;
+            SavePreset_Button.IsEnabled = !SavePreset_Button.IsEnabled;
+            Open_Presets_Menu_Button.IsEnabled = !Open_Presets_Menu_Button.IsEnabled;
+        }
+
+    }
     // Класс для хранения конфигурации
     public class Config
     {

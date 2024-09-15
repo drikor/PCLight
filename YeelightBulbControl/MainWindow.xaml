@@ -21,5 +21,16 @@
         <xctk:ColorPicker x:Name="RGB_ColorPicker" IsEnabled="False" ColorMode="ColorCanvas" SelectedColorChanged="RGB_ColorPicker_SelectedColorChanged" Margin="47,210,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Width="68"/>
         <Button x:Name="Open_Presets_Menu_Button" Content="Presets" HorizontalAlignment="Left" Height="34" Margin="42,274,0,0" VerticalAlignment="Top" Width="80" Click="Open_Presets_Menu_Button_Click" IsEnabled="False"/>
         <Button x:Name="SavePreset_Button" Content="Save Preset" HorizontalAlignment="Left" Height="34" Margin="153,274,0,0" VerticalAlignment="Top" Width="63" Click="SavePreset_Button_Click" IsEnabled="False"/>
+        <Button x:Name="debug_btn" Content="Debug" HorizontalAlignment="Left" Margin="134,366,0,0" VerticalAlignment="Top" Width="87" Click="debug_btn_Click" Visibility="Hidden"/>
+        <Label x:Name="debug_label" Content="clickme" HorizontalAlignment="Left" Margin="45,362,0,0" VerticalAlignment="Top" RenderTransformOrigin="0.5,0.5" Height="25" Width="90" MouseDoubleClick="debug_label_MouseDoubleClick" Visibility="Hidden">
+            <Label.RenderTransform>
+                <TransformGroup>
+                    <ScaleTransform/>
+                    <SkewTransform/>
+                    <RotateTransform Angle="-0.041"/>
+                    <TranslateTransform/>
+                </TransformGroup>
+            </Label.RenderTransform>
+        </Label>
     </Grid>
 </Window>
